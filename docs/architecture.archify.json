@@ -1,0 +1,286 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Claude Certified Architect — Professional Portable",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1280,
+      600
+    ]
+  },
+  "components": [
+    {
+      "id": "you",
+      "type": "external",
+      "label": "You",
+      "sublabel": "Telegram app",
+      "pos": [
+        38,
+        250
+      ],
+      "size": [
+        138,
+        68
+      ]
+    },
+    {
+      "id": "telegram",
+      "type": "messagebus",
+      "label": "Telegram Bot API",
+      "sublabel": "No webhook needed",
+      "brand": "telegram",
+      "pos": [
+        250,
+        250
+      ],
+      "size": [
+        138,
+        68
+      ]
+    },
+    {
+      "id": "bot",
+      "type": "backend",
+      "label": "bot.py",
+      "sublabel": "Quiz · grading · reports",
+      "brand": "python",
+      "pos": [
+        462,
+        250
+      ],
+      "size": [
+        138,
+        68
+      ]
+    },
+    {
+      "id": "claude",
+      "type": "frontend",
+      "label": "Claude Code",
+      "sublabel": "claude -p · tutor + coach",
+      "brand": "claude",
+      "pos": [
+        674,
+        250
+      ],
+      "size": [
+        138,
+        68
+      ]
+    },
+    {
+      "id": "render",
+      "type": "backend",
+      "label": "diagrams + Graphviz",
+      "sublabel": "Official-icon PNG",
+      "pos": [
+        886,
+        250
+      ],
+      "size": [
+        138,
+        68
+      ]
+    },
+    {
+      "id": "jobs",
+      "type": "backend",
+      "label": "Scheduled jobs",
+      "sublabel": "Hourly · Sundays",
+      "pos": [
+        462,
+        90
+      ],
+      "size": [
+        138,
+        68
+      ]
+    },
+    {
+      "id": "banks",
+      "type": "external",
+      "label": "4 question banks",
+      "sublabel": "Community sites",
+      "pos": [
+        38,
+        410
+      ],
+      "size": [
+        138,
+        68
+      ]
+    },
+    {
+      "id": "scraper",
+      "type": "backend",
+      "label": "scrape.py",
+      "sublabel": "Merge + dedupe",
+      "brand": "python",
+      "pos": [
+        250,
+        410
+      ],
+      "size": [
+        138,
+        68
+      ]
+    },
+    {
+      "id": "data",
+      "type": "database",
+      "label": "/data",
+      "sublabel": "Questions · progress",
+      "pos": [
+        462,
+        410
+      ],
+      "size": [
+        138,
+        68
+      ]
+    },
+    {
+      "id": "vault",
+      "type": "database",
+      "label": "Obsidian vault",
+      "sublabel": "Activity log",
+      "pos": [
+        674,
+        410
+      ],
+      "size": [
+        138,
+        68
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Home NAS · one Docker container",
+      "wraps": [
+        "bot",
+        "claude",
+        "render",
+        "jobs",
+        "scraper",
+        "data",
+        "vault"
+      ],
+      "pad": 22
+    }
+  ],
+  "connections": [
+    {
+      "id": "you-telegram",
+      "from": "you",
+      "to": "telegram",
+      "label": "taps A–E",
+      "variant": "emphasis",
+      "labelDy": -28
+    },
+    {
+      "id": "telegram-bot",
+      "from": "telegram",
+      "to": "bot",
+      "label": "long polling",
+      "variant": "emphasis",
+      "labelDy": -28
+    },
+    {
+      "id": "bot-claude",
+      "from": "bot",
+      "to": "claude",
+      "label": "wrong answer",
+      "variant": "emphasis",
+      "labelDy": -28
+    },
+    {
+      "id": "claude-render",
+      "from": "claude",
+      "to": "render",
+      "label": "script",
+      "labelDy": -28
+    },
+    {
+      "id": "jobs-bot",
+      "from": "jobs",
+      "to": "bot",
+      "label": "trigger",
+      "labelAt": [
+        531,
+        172
+      ]
+    },
+    {
+      "id": "bot-data",
+      "from": "bot",
+      "to": "data",
+      "label": "progress",
+      "labelAt": [
+        578,
+        388
+      ]
+    },
+    {
+      "id": "bot-scraper",
+      "from": "bot",
+      "to": "scraper",
+      "label": "Sunday refresh",
+      "variant": "dashed",
+      "fromSide": "left",
+      "toSide": "top"
+    },
+    {
+      "id": "bot-vault",
+      "from": "bot",
+      "to": "vault",
+      "label": "events",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "scraper-banks",
+      "from": "scraper",
+      "to": "banks",
+      "label": "one GET each",
+      "variant": "dashed",
+      "labelDy": -28
+    },
+    {
+      "id": "scraper-data",
+      "from": "scraper",
+      "to": "data",
+      "label": "new questions",
+      "labelDy": -28
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Study loop",
+      "items": [
+        "Hourly question 09:00–22:59, paused until answered",
+        "Wrong answer → verdict, diagram with official icons, Explain more"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Every Sunday",
+      "items": [
+        "09:00 re-fetch all banks, add new, skip duplicates",
+        "22:00 score per domain, predicted 1000-scale score, readiness verdict"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Portable",
+      "items": [
+        "One container: Python + Claude Code + Graphviz",
+        "Code on GitHub (MIT), data stays on your disk"
+      ]
+    }
+  ]
+}
