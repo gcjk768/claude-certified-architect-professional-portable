@@ -1,0 +1,21 @@
+services:
+  ccarp-quiz:
+    build:
+      context: .
+      args:                      # the user the bot runs as, so ./data and the vault stay yours
+        PUID: ${PUID:-1000}
+        PGID: ${PGID:-10}
+    image: ccarp-quiz-bot:local
+    pull_policy: build
+    container_name: ccarp-quiz-bot
+    restart: unless-stopped
+    init: true
+    network_mode: bridge   # outbound only; the NAS has no free subnet pools for another per-stack network
+    env_file: bot.env
+    volumes:
+      - ./data:/data                                  # questions.csv + state.json
+      - "${VAULT_HOST_DIR:-./vault}:/vault"           # Obsidian movement log; set VAULT_DIR=/vault in bot.env
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    mem_limit: 1g

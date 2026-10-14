@@ -1,0 +1,6 @@
+temp/
+__pycache__/
+docs/
+bot.env
+data/state.json
+.git/
