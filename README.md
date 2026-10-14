@@ -8,6 +8,8 @@ A self-hosted Telegram study bot for Anthropic's **Claude Certified Architect â€
 
 ![Architecture](docs/architecture.png)
 
+*Interactive version with pan, zoom, search and relationship tracing: open [`docs/architecture.html`](docs/architecture.html) in a browser.*
+
 ## What you get
 
 | | |
@@ -72,7 +74,7 @@ One Claude call per wrong answer and one per weekly report. Measured with Sonnet
 | `scrape.py` | Source parsers and the merge/dedupe into `data/questions.csv`. |
 | `test_bot.py` | `python test_bot.py`: parsing, buttons, picker, diagram guard, schedule window, report metrics. |
 | `Dockerfile`, `compose.yaml` | The container. Installs Claude Code and Graphviz. |
-| `docs/architecture.py` | Source of the diagram above (rendered with the same `diagrams` library the bot uses). |
+| `docs/architecture.archify.json`, `docs/architecture.html` | Source and interactive build of the diagram above ([Archify](https://github.com/tt-a1i/archify)). `docs/architecture.py` is an alternative render with the `diagrams` library the bot uses. |
 | `assets/claude.png` | Claude logo used as the Claude node in generated diagrams. |
 
 ## Adding a question source
