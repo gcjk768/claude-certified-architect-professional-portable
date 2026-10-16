@@ -62,3 +62,9 @@ big = {**st, "log": [{"t": "2026-10-18T09:00", "id": i, "ok": True, "first": Tru
 big["ok"] = {i: 1 for i in list(bot.QUESTIONS)[::2]}
 assert bot.verdict(bot.metrics(big, now)).startswith("🟢")
 print("ok report")
+
+# invented icon classes are swapped for the closest real one under the same name (no ImportError at render time)
+fixed = bot.fix_icon_imports("from diagrams.aws.network import VPC, VPNGateway as GW, GwlbEndpoint\nfrom diagrams import Diagram")
+assert fixed.startswith("from diagrams.aws.network import VPC, ") and " as GW" in fixed and " as GwlbEndpoint" in fixed, fixed
+exec(fixed)
+print("ok icon imports")

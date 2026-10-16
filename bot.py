@@ -14,7 +14,9 @@ from __future__ import annotations
 import asyncio
 import base64
 import csv
+import difflib
 import html
+import importlib
 import json
 import logging
 import os
@@ -235,6 +237,31 @@ ASSETS = ROOT / "assets"
 _IMPORT = re.compile(r"^\s*(?:from\s+(\S+)\s+import|import\s+(\S+))", re.M)
 
 
+_FROM = re.compile(r"^from\s+(diagrams(?:\.\w+)*)\s+import\s+(\([^)]*\)|[^\n]+)", re.M)
+
+
+def fix_icon_imports(src: str) -> str:
+    """The model sometimes invents icon classes (VPNGateway, GwlbEndpoint) and the whole render fails.
+    Import the closest real class of the same module under the invented name, so the script still runs."""
+    def fix(m: re.Match) -> str:
+        try:
+            real = [n for n in dir(importlib.import_module(m.group(1))) if n[:1].isupper()]
+        except ImportError:
+            return m.group(0)
+        low = {n.lower(): n for n in real}
+        names = []
+        for part in m.group(2).strip().strip("()").replace("\n", " ").split(","):
+            name, _, alias = (p.strip() for p in part.partition(" as "))
+            if not name or name in real or not real:
+                names.append(part.strip())
+                continue
+            near = difflib.get_close_matches(name.lower(), list(low), 1, 0.3)
+            # ponytail: nearest name by spelling, else the module's first icon; an icon map if wrong picks show up
+            names.append(f"{low[near[0]] if near else real[0]} as {alias or name}")
+        return f"from {m.group(1)} import {', '.join(n for n in names if n)}"
+    return _FROM.sub(fix, src)
+
+
 def diagrams_png(src: str) -> bytes:
     """Run a `diagrams` script (official AWS/GCP/Azure/K8s icons) with Graphviz, return out.png.
 
@@ -245,6 +272,7 @@ def diagrams_png(src: str) -> bytes:
         mod = m.group(1) or m.group(2)
         if not (mod == "diagrams" or mod.startswith("diagrams.")):
             raise ValueError(f"import not allowed: {mod}")
+    src = fix_icon_imports(src)
     if "filename=" not in src:   # model dropped it: a title with ':' or '/' is not a valid file name
         src = re.sub(r"^(\s*with\s+Diagram\(.*)\)\s*:\s*$", r'\1, filename="out"):', src, count=1, flags=re.M)
     with tempfile.TemporaryDirectory(prefix="ccarp-diag-") as d:
