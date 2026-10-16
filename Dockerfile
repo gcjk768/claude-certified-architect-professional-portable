@@ -16,7 +16,7 @@ USER root
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY bot.py scrape.py ./
+COPY bot.py scrape.py online_parsers.py ./
 COPY assets ./assets
 RUN mkdir -p /data && chown "$PUID:$PGID" /data
 USER quiz

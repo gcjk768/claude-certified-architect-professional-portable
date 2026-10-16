@@ -58,7 +58,7 @@ assert m["week_n"] == 3 and m["week_ok"] == 2 and m["first_n"] == 3 and m["first
 assert 0 <= m["score"] <= 1000 and bot.verdict(m).startswith("⚪")
 txt = bot.report_text(m, now)
 assert "WEEKLY REPORT" in txt and "Predicted score" in txt and "READINESS" in txt
-big = {**st, "log": [{"t": "2026-10-18T09:00", "id": i, "ok": True, "first": True} for i in list(bot.QUESTIONS)[:300]]}
-big["ok"] = {i: 1 for i in list(bot.QUESTIONS)[:300]}
+big = {**st, "log": [{"t": "2026-10-18T09:00", "id": i, "ok": True, "first": True} for i in list(bot.QUESTIONS)[::2]]}   # every other id: > 40% of the bank, all domains
+big["ok"] = {i: 1 for i in list(bot.QUESTIONS)[::2]}
 assert bot.verdict(bot.metrics(big, now)).startswith("🟢")
 print("ok report")

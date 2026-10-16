@@ -104,7 +104,37 @@ def szymonpaluch() -> list[dict]:
     return rows
 
 
-SOURCES = [claudearchitects, openexamprep, techwithdarin, szymonpaluch]
+_KEYS = {"Integration": "tool|mcp|api|integrat|webhook|sdk|agent|function call|stream|batch|rate limit|retry|latency|cache",
+         "Solution Design & Architecture": "architect|design|workflow|orchestrat|multi-agent|subagent|rag|retriev|vector|pipeline|pattern|trade-off|tradeoff",
+         "Evaluation, Testing & Optimization": "eval|test|benchmark|metric|regression|quality|accuracy|judge|grader|optimi|cost|token budget|prompt caching",
+         "Governance, Safety & Risk Management": "safety|guardrail|govern|risk|complian|hipaa|gdpr|pii|privacy|jailbreak|injection|audit|policy|responsible|harm",
+         "Stakeholder Communication & Lifecycle Management": "stakeholder|executive|business|roadmap|lifecycle|handoff|adoption|change management|communicat|expectation|rollout|pilot",
+         "Claude Models, Prompting & Context Engineering": "prompt|system prompt|context window|model|sonnet|opus|haiku|temperature|few-shot|xml tag|extended thinking|token",
+         "Developer Productivity & Operational Enablement": "claude code|developer|ide|productivity|ci/cd|team|hook|skill|slash command|cli|onboard"}
+
+
+def _classify(q: dict) -> str:
+    """Sources without blueprint domains: pick the official domain whose keywords appear most in the question."""
+    text = (q["question"] + " " + q["options"]).lower()
+    best, score = "Solution Design & Architecture", 0
+    for name, pat in _KEYS.items():
+        n = len(re.findall(pat, text))
+        if n > score:
+            best, score = name, n
+    return best
+
+
+def online_files() -> list[dict]:
+    """Banks downloaded into sources/online/ (2026-10-16 research, 20 sources): parsed by online_parsers.py, no network."""
+    import online_parsers
+    rows = online_parsers.online_files()
+    for r in rows:
+        if r["domain"] not in _OFFICIAL:
+            r["domain"] = _classify(r)
+    return rows
+
+
+SOURCES = [claudearchitects, openexamprep, techwithdarin, szymonpaluch, online_files]
 
 _OFFICIAL = ["Solution Design & Architecture", "Claude Models, Prompting & Context Engineering", "Integration",
              "Evaluation, Testing & Optimization", "Governance, Safety & Risk Management",
