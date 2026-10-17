@@ -68,3 +68,18 @@ fixed = bot.fix_icon_imports("from diagrams.aws.network import VPC, VPNGateway a
 assert fixed.startswith("from diagrams.aws.network import VPC, ") and " as GW" in fixed and " as GwlbEndpoint" in fixed, fixed
 exec(fixed)
 print("ok icon imports")
+
+
+# Telegram Mermaid gets the portal's colours; the portal switches the tutor to Mermaid; the report names what to study next
+t = bot.themed("flowchart LR\n  A([Start]) --> B{Ok?}\n  B --> C[(Store)]")
+assert t.startswith("%%{init") and "class A term" in t and "class B dec" in t and "class C db" in t, t
+assert bot.themed("sequenceDiagram\n  A->>B: hi") == "sequenceDiagram\n  A->>B: hi"
+bot.PREFER_MERMAID = True
+r = bot.diagram_rule('DIAGRAM: kind must be "diagrams" (x, y). Quote it.\n')
+assert r.startswith('DIAGRAM: kind must be "mermaid"') and "Quote it." in r, r
+assert bot.diagram_rule("").startswith('DIAGRAM: kind must be "mermaid"')
+bot.PREFER_MERMAID = False
+assert bot.diagram_rule("keep") == "keep"
+nxt = bot.study_next({"by_dom": {"A": [1, 4], "B": [3, 3], "C": [0, 0]}})
+assert "Study next" in nxt and "A · 25%" in nxt and "C · not started" in nxt and "B ·" not in nxt, nxt
+print("ok diagrams + study next")

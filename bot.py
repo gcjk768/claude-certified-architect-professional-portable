@@ -206,7 +206,7 @@ async def ask_claude(q: dict, picked: set[str]) -> dict:
     prompt = (f"QUESTION: {q['question']}\n\nOPTIONS:\n{q['options']}\n\n"
               f"CORRECT: {q['correct']}\nSTUDENT PICKED: {','.join(sorted(picked))}\n"
               f"SITE EXPLANATION: {q['explanation']}\n\n"
-              + ('DIAGRAM: kind must be "diagrams" (architecture with official icons).\n'
+              + diagram_rule('DIAGRAM: kind must be "diagrams" (architecture with official icons).\n'
                  if q["domain"] in ARCH_DOMAINS else 'DIAGRAM: required ("diagrams" preferred, "mermaid" if no components).\n')
               + 'Reply with ONLY a JSON object: {"teach": "...", "kind": "diagrams|mermaid", "code": "..."}.')
     data = await run_claude(SYSTEM, prompt, SCHEMA)
@@ -225,7 +225,73 @@ async def ask_claude(q: dict, picked: set[str]) -> dict:
     raise RuntimeError(f"empty reply (subtype={data.get('subtype')})")
 
 
+PREFER_MERMAID = False   # the exam portal sets True: it draws Mermaid itself, with official icons and its colours
+MERMAID_SENTENCE = ('DIAGRAM: kind must be "mermaid" (a flowchart; the page adds official icons for product names in node '
+                    'labels, so name the real products, e.g. Lambda, S3, Bedrock, Pod, Claude, GitLab, Terraform).')
+PORTAL_URL = os.environ.get("PORTAL_URL", "").rstrip("/")   # exam portal; the weekly report links its study notes
+ACCENT = "#d48a63"   # this exam's colour in the portal; Telegram diagrams use it too
+
+
+def diagram_rule(rule: str) -> str:
+    """The bot's own diagram instruction, or Mermaid when the exam portal draws the diagram (rest of the rule kept)."""
+    if not PREFER_MERMAID:
+        return rule
+    out = re.sub(r'^DIAGRAM: (?:kind must be "diagrams"|required) \([^)]*\)\.?', MERMAID_SENTENCE, rule)
+    return out if out != rule else MERMAID_SENTENCE + "\n" + rule
+
+
+_SHAPE = re.compile(r"\s*(?:\|[^|]*\|)?\s*([A-Za-z]\w*)\s*(\(\[|\[\(|\{\{|\{)")
+
+
+def themed(src: str) -> str:
+    """Portal colour language for Telegram PNGs: stadium = accent, diamond = amber, cylinder = teal, hexagon = violet."""
+    lines = src.strip().splitlines()
+    if not lines or not re.match(r"\s*(flowchart|graph)\b", lines[0]):
+        return src
+    kinds = {"([": "term", "[(": "db", "{{": "hex", "{": "dec"}
+    sets: dict[str, set] = {k: set() for k in kinds.values()}
+    for line in lines[1:]:
+        for seg in re.split(r"-\.->|-->|==>|---", line):
+            m = _SHAPE.match(seg)
+            if m:
+                sets[kinds[m.group(2)]].add(m.group(1))
+    rgb = [int(ACCENT[i:i + 2], 16) for i in (1, 3, 5)]
+    tint = "#" + "".join(f"{round(c * .12 + 255 * .88):02x}" for c in rgb)
+    ink = "#1d1d19" if (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255 > 0.6 else "#ffffff"
+    defs = [f"classDef default fill:{tint},stroke:{ACCENT},stroke-width:1.5px,color:#1d1d19",
+            f"classDef term fill:{ACCENT},stroke:{ACCENT},color:{ink},font-weight:bold",
+            "classDef dec fill:#fbf0d9,stroke:#e2a93b,color:#1d1d19",
+            "classDef db fill:#dff0ed,stroke:#3a9d91,color:#1d1d19",
+            "classDef hex fill:#ece6fb,stroke:#8b6fe0,color:#1d1d19",
+            "linkStyle default stroke:#8a897f,stroke-width:1.5px"]
+    defs += [f"class {','.join(sorted(ids))} {k}" for k, ids in sets.items() if ids]
+    init = '%%{init: {"theme": "base", "flowchart": {"curve": "basis"}, "themeVariables": {"fontFamily": "Arial", "lineColor": "#8a897f", "edgeLabelBackground": "#ffffff"}}}%%'
+    return "\n".join([init, src.strip(), *defs])
+
+
 def mermaid_png(src: str) -> bytes:
+    """Coloured like the portal; plain Mermaid when mermaid.ink rejects the themed source."""
+    try:
+        return _mermaid_ink(themed(src))
+    except Exception:
+        return _mermaid_ink(src)
+
+
+def study_next(m: dict) -> str:
+    """The two weakest domains (first-try accuracy, at least 3 answered; else untouched ones) + a link to the portal notes."""
+    doms = [(d, r / n if n else 0.0, n) for d, (r, n) in m["by_dom"].items()]
+    tried = sorted([x for x in doms if x[2] >= 3], key=lambda x: x[1])   # weak (< 80%), then untouched, then the rest
+    weak = ([x for x in tried if x[1] < 0.8] + [x for x in doms if not x[2]] + [x for x in tried if x[1] >= 0.8])[:2]
+    if not weak:
+        return ""
+    lines = ["", "", "📖 <b>Study next</b>"]
+    lines += [f"• {html.escape(d)} · {str(round(100 * a)) + '%' if n else 'not started'}" for d, a, n in weak]
+    if PORTAL_URL:
+        lines.append(f'<a href="{html.escape(PORTAL_URL)}/#study">Open the study notes</a>')
+    return "\n".join(lines)
+
+
+def _mermaid_ink(src: str) -> bytes:
     """Render through mermaid.ink (public renderer, no key). Caller handles failure."""
     code = base64.urlsafe_b64encode(src.encode()).decode()
     req = urllib.request.Request(f"https://mermaid.ink/img/{code}?type=png&bgColor=white",
@@ -332,8 +398,8 @@ class Dest:
         return self.bot.send_photo(self.chat_id, photo, message_thread_id=self.thread, **kw)
 
 
-async def send_question(chat, state: dict) -> None:
-    q = pick_question(state)
+async def send_question(chat, state: dict, q: dict | None = None) -> None:
+    q = q or pick_question(state)
     await chat.send_message(question_text(q), reply_markup=keyboard(q))
     state["pending"] = q["id"]          # the auto-quiz waits until this one is answered
     save_state(state)
@@ -478,7 +544,7 @@ async def weekly_report(ctx: ContextTypes.DEFAULT_TYPE, dest=None) -> None:
     """Sunday 22:00 SGT (and /report): numbers, predicted score, verdict, then a short Claude assessment."""
     state, now = load_state(), datetime.now(SGT)
     m = metrics(state, now)
-    text = report_text(m, now)
+    text = report_text(m, now) + study_next(m)
     dest = dest or (Dest(None, ctx.bot) if BOT_CHAT else None)
     if not dest:
         return
