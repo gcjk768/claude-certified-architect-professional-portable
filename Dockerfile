@@ -16,8 +16,9 @@ USER root
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY --chmod=755 bot.py scrape.py online_parsers.py ./
-COPY --chmod=755 assets ./assets
+COPY bot.py scrape.py online_parsers.py ./
+COPY assets ./assets
+# The build folder on the NAS is mode 770, and COPY keeps the mode but makes the files root-owned: the bot user could not read them.
 RUN chmod -R a+rX /app
 RUN mkdir -p /data && chown "$PUID:$PGID" /data
 USER quiz

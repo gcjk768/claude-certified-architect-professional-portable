@@ -168,6 +168,12 @@ def refresh() -> dict:
     rows = load()
     ids = {r["id"] for r in rows}
     stems = {_norm(r["question"]) for r in rows}
+    # questions pruned for not matching the real exam (data/removed_questions.csv) must not come back
+    gone = OUT.with_name("removed_questions.csv")
+    if gone.exists():
+        with gone.open(encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                ids.add(r["id"]); stems.add(_norm(r["question"]))
     report = {"before": len(rows), "added": {}, "dupes": 0, "failed": {}}
     for src in SOURCES:
         try:
