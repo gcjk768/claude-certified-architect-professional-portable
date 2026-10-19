@@ -16,8 +16,8 @@ state = {"ok": {}, "bad": {}}
 seen = {bot.pick_question(state)["id"] for _ in range(50)}
 assert len(seen) > 10
 state["ok"] = {i: 1 for i in bot.QUESTIONS}
-state["bad"] = {"CCAR-P-0010": 2}
-assert bot.pick_question(state)["id"] == "CCAR-P-0010"          # wrong ones come back first
+state["bad"] = {"CCAR-P-0012": 2}
+assert bot.pick_question(state)["id"] == "CCAR-P-0012"          # wrong ones come back first
 assert "PROGRESS" in bot.stats_text(state)
 bot.STATE_PATH = bot.Path(tempfile.mkdtemp()) / "state.json"
 bot.save_state(state); assert bot.load_state() == state
@@ -48,7 +48,7 @@ print("ok schedule")
 # weekly report metrics: 3 first-try answers this week, 2 right; score weighted by domain
 from datetime import datetime as _dt
 now = _dt(2026, 10, 18, 22, 0)
-ids = ["CCAR-P-0001", "CCAR-P-0006", "CCAR-P-0010"]
+ids = ["CCAR-P-0001", "CCAR-P-0006", "CCAR-P-0012"]
 st = {"ok": {}, "bad": {}, "log": [{"t": "2026-10-17T10:00", "id": ids[0], "ok": True, "first": True},
                                    {"t": "2026-10-17T11:00", "id": ids[1], "ok": True, "first": True},
                                    {"t": "2026-10-18T09:00", "id": ids[2], "ok": False, "first": True},
