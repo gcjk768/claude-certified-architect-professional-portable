@@ -83,3 +83,11 @@ assert bot.diagram_rule("keep") == "keep"
 nxt = bot.study_next({"by_dom": {"A": [1, 4], "B": [3, 3], "C": [0, 0]}})
 assert "Study next" in nxt and "A · 25%" in nxt and "C · not started" in nxt and "B ·" not in nxt, nxt
 print("ok diagrams + study next")
+
+# previous question viewer: newest first, the pending question is not "previous"
+st = {"ok": {}, "bad": {}, "pending": "CCAR-P-0006", "log": [{"id": "CCAR-P-0001", "ok": True}, {"id": "CCAR-P-0012", "ok": False}, {"id": "CCAR-P-0006", "ok": True}]}
+assert [e["id"] for e in bot.answered(st)] == ["CCAR-P-0012", "CCAR-P-0001"]
+text, kb = bot.previous_view(st, 1)
+assert "CCAR-P-0012" in text and "MISSED" in text and "1 back" in text and len(text) <= 4000
+assert [b.callback_data for b in kb.inline_keyboard[0]] == ["pv|2"] and bot.previous_view(st, 3) is None
+print("ok previous")

@@ -110,7 +110,8 @@ def keyboard(q: dict, picked: set[str] = frozenset()) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(rows)
 
 
-NEXT_ROW = [InlineKeyboardButton("➡️ Next question", callback_data="next"),
+NEXT_ROW = [InlineKeyboardButton("◀️ Previous", callback_data="pv|1"),
+            InlineKeyboardButton("➡️ Next question", callback_data="next"),
             InlineKeyboardButton("📊 Stats", callback_data="stats")]
 NEXT_KB = InlineKeyboardMarkup([NEXT_ROW])
 
@@ -120,6 +121,34 @@ def after_kb(q: dict, picked: set[str]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[InlineKeyboardButton("🎓 Explain more",
                                                        callback_data=f"e|{q['id']}|{','.join(sorted(picked))}")],
                                  NEXT_ROW])
+
+
+def answered(state: dict) -> list[dict]:
+    """Answered questions, newest first, one entry per question; the one still waiting for an answer is not 'previous'."""
+    seen, out = set(), []
+    for e in reversed(state.get("log", [])):
+        if e["id"] not in seen and e["id"] != state.get("pending") and e["id"] in QUESTIONS:
+            seen.add(e["id"]); out.append(e)
+    return out
+
+
+def previous_view(state: dict, k: int) -> tuple[str, InlineKeyboardMarkup] | None:
+    """The k-th most recent answered question (1 = the last one) with the right answer and the explanation."""
+    entries = answered(state)
+    if not 1 <= k <= len(entries):
+        return None
+    e = entries[k - 1]
+    q = QUESTIONS[e["id"]]
+    last = state.get("last") or {}
+    mine = f" · you picked <code>{html.escape(','.join(last['picked']))}</code>" if last.get("id") == q["id"] and last.get("picked") else ""
+    head = f"{TITLE['ok'] if e['ok'] else TITLE['bad']} <b>{'RIGHT' if e['ok'] else 'MISSED'}</b>{mine} · answer <code>{html.escape(q['correct'])}</code>"
+    text = f"◀️ <b>{k} back</b> of {len(entries)}\n\n{question_text(q)}\n\n{head}\n\n{html.escape(q['explanation'])}"
+    nav = []
+    if k < len(entries):
+        nav.append(InlineKeyboardButton("◀️ Older", callback_data=f"pv|{k + 1}"))
+    if k > 1:
+        nav.append(InlineKeyboardButton("Newer ▶️", callback_data=f"pv|{k - 1}"))
+    return text[:4000], InlineKeyboardMarkup([nav, [NEXT_ROW[1], NEXT_ROW[2]]] if nav else [[NEXT_ROW[1], NEXT_ROW[2]]])
 
 
 def stats_text(state: dict) -> str:
@@ -591,6 +620,15 @@ async def on_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         return
     if data == "stats":
         await chat.send_message(stats_text(state))
+        return
+    if data.startswith("pv|"):                        # Previous question / Older / Newer
+        view = previous_view(state, int(data[3:] or 1)) if data[3:].isdigit() else None
+        if view is None:
+            await chat.send_message("◀️ <i>No earlier answered question yet.</i>")
+        elif cq.message.text and cq.message.text.startswith("◀️"):       # already in the viewer: edit in place
+            await cq.edit_message_text(view[0], reply_markup=view[1], parse_mode="HTML", disable_web_page_preview=True)
+        else:
+            await chat.send_message(view[0], reply_markup=view[1])
         return
     kind, qid, *rest = data.split("|")
     q = QUESTIONS.get(qid)

@@ -154,6 +154,24 @@ def _norm(stem: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", stem.lower()).strip()
 
 
+_STOP = set("the a an of to and in for is are be that this with on as by or it its which what should most your you from at their they can will would into if not".split())
+
+
+def _words(r: dict) -> set[str]:
+    """Content words of the stem plus the correct options: what 'same scenario, same answer' looks like."""
+    right = r["correct"].split(",")
+    ans = [o[3:] for o in r["options"].splitlines() if o[:1] in right]
+    return {w for w in re.sub(r"[^a-z0-9 ]", " ", (r["question"] + " " + " ".join(ans)).lower()).split() if w not in _STOP and len(w) > 2}
+
+
+def near_td(r: dict, td_words: list[set[str]], threshold: float = 0.28) -> bool:
+    """True when a fetched row is the same scenario and answer as a Tutorials Dojo row (Jaccard >= 0.28 on content words).
+    ponytail: word overlap only, so it catches ~1 in 5 paraphrases but has no false positives on the 69 known pairs;
+    upgrade to embeddings if the community banks keep re-adding paraphrases."""
+    w = _words(r)
+    return any(len(w & t) / len(w | t) >= threshold for t in td_words if w and t)
+
+
 # ── Merge ────────────────────────────────────────────────────────────────────
 
 def load() -> list[dict]:
@@ -174,6 +192,7 @@ def refresh() -> dict:
         with gone.open(encoding="utf-8") as f:
             for r in csv.DictReader(f):
                 ids.add(r["id"]); stems.add(_norm(r["question"]))
+    td_words = [_words(r) for r in rows if r.get("source") == "Tutorials Dojo"]
     report = {"before": len(rows), "added": {}, "dupes": 0, "failed": {}}
     for src in SOURCES:
         try:
@@ -184,7 +203,7 @@ def refresh() -> dict:
         added = 0
         for r in fetched:
             key = _norm(r["question"])
-            if r["id"] in ids or key in stems:
+            if r["id"] in ids or key in stems or (td_words and near_td(r, td_words)):
                 report["dupes"] += r["id"] not in ids   # same stem under a new id = a real duplicate
                 continue
             ids.add(r["id"]); stems.add(key); rows.append(r); added += 1
