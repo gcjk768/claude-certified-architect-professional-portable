@@ -392,9 +392,19 @@ def codeheart() -> list[dict]:
 
 # ── Entry point ──────────────────────────────────────────────────────────────
 
+def community() -> list[dict]:
+    """Open-licensed community banks from GitHub (MIT / Apache / CC BY repos), normalised and de-duplicated by
+    exam-portal/tools/import_banks.py on 2026-10-23; each row carries its repo and licence in `source`."""
+    f = SRC / "community_2026-10-23.json"
+    if not f.exists():
+        return []
+    return [_r(f"CM-{q['id'][2:]}", q["domain"], q["question"], [o[3:] for o in q["options"].split("\n")],
+               q["correct"].split(","), q["explanation"], q["source"]) for q in json.loads(f.read_text(encoding="utf-8"))]
+
+
 PARSERS = [amey, preporato, enkrateia, lilyfeng, girishr, danielneustadter, madhavarao, pratechlabs, tjswc,
            nnn, surajadsul, anuragsirish, hoantran, sumitgupta, codeheart, wonderfull,
-           claudemockexams, certsafari, certland, sammuthu_practice, sammuthu_mock]
+           claudemockexams, certsafari, certland, sammuthu_practice, sammuthu_mock, community]
 
 
 def online_files() -> list[dict]:
