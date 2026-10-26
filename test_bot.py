@@ -91,3 +91,10 @@ text, kb = bot.previous_view(st, 1)
 assert "CCAR-P-0012" in text and "MISSED" in text and "1 back" in text and len(text) <= 4000
 assert [b.callback_data for b in kb.inline_keyboard[0]] == ["pv|2"] and bot.previous_view(st, 3) is None
 print("ok previous")
+
+# long explanations (the Udemy sets run past 4,000 chars) are cut at a break, so Telegram's 4096 limit holds
+longest = max(bot.QUESTIONS.values(), key=lambda q: len(q["explanation"]))
+assert len(bot.clip(longest["explanation"], 3700)) <= 3702 and bot.clip("short", 3700) == "short"
+text, _ = bot.previous_view({"ok": {}, "bad": {longest["id"]: 1}, "log": [{"id": longest["id"], "ok": False}]}, 1)
+assert len(text) <= 4000 and text.count("<code>") == text.count("</code>") and text.rstrip().endswith("…"), len(text)
+print("ok long explanations")

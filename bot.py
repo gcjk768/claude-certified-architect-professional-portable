@@ -116,6 +116,16 @@ NEXT_ROW = [InlineKeyboardButton("◀️ Previous", callback_data="pv|1"),
 NEXT_KB = InlineKeyboardMarkup([NEXT_ROW])
 
 
+def clip(s: str, n: int) -> str:
+    """Plain text cut to n chars at a line or word break, before HTML escaping: Telegram refuses messages over 4096
+    characters, and some bank explanations (the Udemy sets) run past 4,000."""
+    if len(s) <= n:
+        return s
+    cut = s[:n]
+    cut = cut[:cut.rfind("\n")] if cut.rfind("\n") > n * 0.6 else cut[:cut.rfind(" ")]
+    return cut.rstrip() + " …"
+
+
 def after_kb(q: dict, picked: set[str]) -> InlineKeyboardMarkup:
     """Shown with the site's answer: Claude is only called when 'Explain more' is tapped."""
     return InlineKeyboardMarkup([[InlineKeyboardButton("🎓 Explain more",
@@ -142,7 +152,7 @@ def previous_view(state: dict, k: int) -> tuple[str, InlineKeyboardMarkup] | Non
     last = state.get("last") or {}
     mine = f" · you picked <code>{html.escape(','.join(last['picked']))}</code>" if last.get("id") == q["id"] and last.get("picked") else ""
     head = f"{TITLE['ok'] if e['ok'] else TITLE['bad']} <b>{'RIGHT' if e['ok'] else 'MISSED'}</b>{mine} · answer <code>{html.escape(q['correct'])}</code>"
-    text = f"◀️ <b>{k} back</b> of {len(entries)}\n\n{question_text(q)}\n\n{head}\n\n{html.escape(q['explanation'])}"
+    text = f"◀️ <b>{k} back</b> of {len(entries)}\n\n{question_text(q)}\n\n{head}\n\n{html.escape(clip(q['explanation'], max(300, 3700 - len(question_text(q)))))}"
     nav = []
     if k < len(entries):
         nav.append(InlineKeyboardButton("◀️ Older", callback_data=f"pv|{k + 1}"))
@@ -671,7 +681,7 @@ async def grade(chat, state: dict, q: dict, picked: set[str]) -> None:
     head = (f"{TITLE['ok']} <b>CORRECT</b> · {html.escape(q['correct'])}" if right else
             f"{TITLE['bad']} <b>WRONG</b> · you picked <code>{html.escape(','.join(sorted(picked)))}</code>, "
             f"answer <code>{html.escape(q['correct'])}</code>")
-    body = f"{head}\n\n{html.escape(q['explanation'])}"
+    body = f"{head}\n\n{html.escape(clip(q['explanation'], 3700))}"
     if right:                       # no Claude call unless 'Explain more' is tapped
         await chat.send_message(body, reply_markup=after_kb(q, picked))
         return
