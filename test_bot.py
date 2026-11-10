@@ -11,6 +11,9 @@ assert all(len(bot.question_text(q)) < 4096 for q in bot.QUESTIONS.values())
 kb = bot.keyboard(q, {"D"})
 assert kb.inline_keyboard[3][0].text.startswith("☑ D · ") and kb.inline_keyboard[5][0].text == "✅ Submit"
 assert len(bot.keyboard(bot.QUESTIONS["CCAR-P-0006"]).inline_keyboard) == 4  # single answer: no Submit row
+for q in bot.QUESTIONS.values():   # every option button reads differently (long shared starts are dropped)
+    labels = [r[0].text for r in bot.keyboard(q).inline_keyboard if r[0].text != "✅ Submit"]
+    assert len(set(labels)) == len(labels), (q["id"], labels)
 
 state = {"ok": {}, "bad": {}}
 seen = {bot.pick_question(state)["id"] for _ in range(50)}
@@ -98,3 +101,10 @@ assert len(bot.clip(longest["explanation"], 3700)) <= 3702 and bot.clip("short",
 text, _ = bot.previous_view({"ok": {}, "bad": {longest["id"]: 1}, "log": [{"id": longest["id"], "ok": False}]}, 1)
 assert len(text) <= 4000 and text.count("<code>") == text.count("</code>") and text.rstrip().endswith("…"), len(text)
 print("ok long explanations")
+
+import csv, scrape   # refresh skips reworded copies of original-author rows (Tutorials Dojo, Matthew Purcell v2)
+orig = [scrape._words(r) for r in bot.QUESTIONS.values() if r["source"].startswith(scrape.ORIGINALS)]
+gone = {r["id"]: r for r in csv.DictReader(open(scrape.OUT.with_name("removed_questions.csv"), encoding="utf-8"))}
+assert all(scrape.near_td(gone[i], orig) for i in ("CM-0412", "TWD-3.10", "CODEH-5.5"))
+assert not scrape.near_td(bot.QUESTIONS["CCAR-P-0001"], orig)
+print("ok refresh skips copies of originals")

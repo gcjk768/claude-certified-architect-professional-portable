@@ -25,6 +25,7 @@ from pathlib import Path
 
 OUT = Path(os.environ.get("DATA_DIR", Path(__file__).parent / "data")) / "questions.csv"   # /data in Docker
 FIELDS = ["id", "domain", "question", "options", "correct", "explanation", "source"]
+ORIGINALS = ("Tutorials Dojo", "Matthew Purcell")   # original authors: reworded community copies of their rows are skipped on refresh
 UA = {"User-Agent": "Mozilla/5.0 (ccarp-quiz-bot; personal study use)"}
 LETTERS = "ABCDEFGH"
 
@@ -192,7 +193,7 @@ def refresh() -> dict:
         with gone.open(encoding="utf-8") as f:
             for r in csv.DictReader(f):
                 ids.add(r["id"]); stems.add(_norm(r["question"]))
-    td_words = [_words(r) for r in rows if r.get("source") == "Tutorials Dojo"]
+    td_words = [_words(r) for r in rows if r.get("source", "").startswith(ORIGINALS)]
     report = {"before": len(rows), "added": {}, "dupes": 0, "failed": {}}
     for src in SOURCES:
         try:

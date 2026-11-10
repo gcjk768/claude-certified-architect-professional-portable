@@ -99,11 +99,18 @@ def question_text(q: dict) -> str:
 
 
 def keyboard(q: dict, picked: set[str] = frozenset()) -> InlineKeyboardMarkup:
-    # One full-width button per option: "A · first words of the option" (☑ when toggled).
-    rows = []
-    for line in q["options"].splitlines():
-        l, text = line[0], line[3:]
-        label = f"{'☑ ' if l in picked else ''}{l} · {text[:34]}{'…' if len(text) > 34 else ''}"
+    # One full-width button per option: "A · first words of the option" (☑ when toggled). The full options are in
+    # the message, so the label only has to tell the options apart: drop the start they all share, and fall back
+    # to the bare letter when the cut labels would still look the same.
+    rows, lines = [], q["options"].splitlines()
+    texts = [line[3:] for line in lines]
+    cut = os.path.commonprefix(texts).rfind(" ") + 1 if len(texts) > 1 else 0
+    shown = [("…" if cut else "") + t[cut:][:34] + ("…" if len(t) - cut > 34 else "") for t in texts]
+    if len(set(shown)) < len(shown):
+        shown = [""] * len(shown)
+    for line, s in zip(lines, shown):
+        l = line[0]
+        label = f"{'☑ ' if l in picked else ''}{l}{' · ' + s if s else ''}"
         rows.append([InlineKeyboardButton(label, callback_data=f"a|{q['id']}|{l}")])
     if len(q["answer"]) > 1:
         rows.append([InlineKeyboardButton("✅ Submit", callback_data=f"s|{q['id']}")])
