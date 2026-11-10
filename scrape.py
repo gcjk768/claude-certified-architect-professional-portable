@@ -166,7 +166,8 @@ def _words(r: dict) -> set[str]:
 
 
 def near_td(r: dict, td_words: list[set[str]], threshold: float = 0.28) -> bool:
-    """True when a fetched row is the same scenario and answer as a Tutorials Dojo row (Jaccard >= 0.28 on content words).
+    """True when a fetched row is the same scenario and answer as an original-author row (`ORIGINALS`: Tutorials Dojo,
+    Matthew Purcell; Jaccard >= 0.28 on content words). Name kept from when Tutorials Dojo was the only original.
     ponytail: word overlap only, so it catches ~1 in 5 paraphrases but has no false positives on the 69 known pairs;
     upgrade to embeddings if the community banks keep re-adding paraphrases."""
     w = _words(r)
