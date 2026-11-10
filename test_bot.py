@@ -21,6 +21,17 @@ assert len(seen) > 10
 state["ok"] = {i: 1 for i in bot.QUESTIONS}
 state["bad"] = {"CCAR-P-0012": 2}
 assert bot.pick_question(state)["id"] == "CCAR-P-0012"          # wrong ones come back first
+# spaced repetition shared with the portal: due reviews first, a right answer pushes the review out
+from datetime import datetime as _dt
+now = _dt(2026, 11, 10, 12, 0, tzinfo=bot.SGT)
+s = {"ok": {}, "bad": {}, "last": {"id": "MP2-1.1"}, "srs": {"MP2-1.1": ["2026-11-01T09:00+08:00", 2], "MP2-1.2": ["2026-11-09T09:00+08:00", 1],
+                                                            "MP2-1.3": ["2026-12-01T09:00+08:00", 3], "c:abcd1234": ["2026-11-01T09:00+08:00", 0]}}
+assert bot.due_ids(s, now.isoformat(timespec="minutes")) == ["MP2-1.1", "MP2-1.2"]   # most overdue first; not-yet-due and flashcards left out
+assert bot.pick_question(s, now)["id"] == "MP2-1.2"                                    # the one just answered is not repeated straight away
+s["pending"] = "MP2-1.2"; assert bot.pick_question(s, now)["id"] == "MP2-1.1"; s["pending"] = None   # nor the one on screen
+bot.schedule(s, "MP2-1.2", True, now); assert s["srs"]["MP2-1.2"] == ["2026-11-13T12:00+08:00", 2]    # rung 1 -> 2 = 3 days
+bot.schedule(s, "MP2-1.2", False, now); assert s["srs"]["MP2-1.2"] == ["2026-11-10T12:10+08:00", 0]   # wrong: back in 10 min
+bot.schedule(s, "MP2-9.9", True, now); assert s["srs"]["MP2-9.9"][1] == bot.FIRST_SURE                # right at first sight: 21 days
 assert "PROGRESS" in bot.stats_text(state)
 bot.STATE_PATH = bot.Path(tempfile.mkdtemp()) / "state.json"
 bot.save_state(state); assert bot.load_state() == state

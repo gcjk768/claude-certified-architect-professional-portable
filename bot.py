@@ -82,8 +82,35 @@ def save_state(state: dict) -> None:
     os.replace(tmp, STATE_PATH)
 
 
-def pick_question(state: dict) -> dict:
-    """Unseen first, then ones got wrong, then anything. Random inside the tier."""
+# Spaced repetition, the same rules as the exam portal's plan.py (the portal shares this state.json):
+# state["srs"][id] = [due_iso, rung]. ponytail: copied, not imported (the portal is another repo); test_web.py checks they match.
+LADDER_MIN = [10, 1440, 3 * 1440, 7 * 1440, 21 * 1440, 45 * 1440, 60 * 1440]   # minutes to the next review, by rung
+FIRST_SURE = 4   # right at first sight: one confirmation review after 21 days
+
+
+def schedule(state: dict, qid: str, right: bool, now: datetime) -> None:
+    srs = state.setdefault("srs", {})
+    e = srs.get(qid)
+    rung = e[1] if isinstance(e, list) and len(e) == 2 and isinstance(e[1], int) and 0 <= e[1] < len(LADDER_MIN) else -1
+    rung = 0 if not right else FIRST_SURE if rung < 0 else min(rung + 1, len(LADDER_MIN) - 1)
+    srs[qid] = [(now + timedelta(minutes=LADDER_MIN[rung])).isoformat(timespec="minutes"), rung]
+
+
+def due_ids(state: dict, now_iso: str) -> list[str]:
+    """Questions due for review, most overdue first; plus misses that have no schedule yet (missed more than right)."""
+    srs = state.get("srs") or {}
+    due = [k for _, k in sorted((v[0], k) for k, v in srs.items()
+                                if isinstance(v, list) and v and isinstance(v[0], str) and v[0] <= now_iso and not k.startswith("c:"))]
+    return due + [i for i, n in state.get("bad", {}).items() if i not in srs and n > state.get("ok", {}).get(i, 0)]
+
+
+def pick_question(state: dict, now: datetime | None = None) -> dict:
+    """Due reviews first (most overdue), then unseen, then ones got wrong, then anything. Random inside a tier."""
+    last = (state.get("last") or {}).get("id")
+    due = [i for i in due_ids(state, (now or datetime.now(SGT)).isoformat(timespec="minutes"))
+           if i in QUESTIONS and i != state.get("pending")]   # Next on an unanswered question means "a different one"
+    if due:
+        return QUESTIONS[next((i for i in due if i != last), due[0])]
     seen = set(state["ok"]) | set(state["bad"])
     pool = [i for i in QUESTIONS if i not in seen] or \
            [i for i in QUESTIONS if state["bad"].get(i, 0) > state["ok"].get(i, 0)] or list(QUESTIONS)
@@ -682,6 +709,7 @@ async def grade(chat, state: dict, q: dict, picked: set[str]) -> None:
     state.setdefault("log", []).append({"t": datetime.now(SGT).isoformat(timespec="minutes"), "id": q["id"],
                                         "ok": right, "first": first})
     state["log"] = state["log"][-5000:]
+    schedule(state, q["id"], right, datetime.now(SGT))   # next review, shared with the portal's plan
     save_state(state)
     vault_log(f"{TITLE[bucket]} **{'correct' if right else 'wrong'}**",
               f"{q['id']} picked {','.join(sorted(picked))} answer {q['correct']}")
